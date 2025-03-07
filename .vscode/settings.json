@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "pebball_game_window.h": "c",
+        "utils.h": "c",
+        "array": "c",
+        "functional": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "compare": "c"
+    }
+}

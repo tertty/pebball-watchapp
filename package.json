@@ -1,0 +1,35 @@
+{
+  "name": "pebball",
+  "author": "MakeAwesomeHappen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Pebball!",
+    "uuid": "73bc5078-bba5-486e-8fe7-4690d2ed20ae",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "WEBSOCKET_ACK_EVENT",
+      "WEBSOCKET_CONNECT_EVENT",
+      "WEBSOCKET_START_GAME_EVENT",
+      "WEBSOCKET_BATTER_POSITION_READY_EVENT",
+      "WEBSOCKET_PITCHER_THROW_EVENT",
+      "WEBSOCKET_BATTER_SWING_EVENT",
+      "PITCH_REACH_TIME"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}
