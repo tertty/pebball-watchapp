@@ -1,20 +1,19 @@
 var socket;
 
 function connect_gameserver_websocket(gameserver_id) {
-    var url = "wss://echo.websocket.org";
+    var url = `ws://10.100.0.37:3000/${gameserver_id}`;
     
     socket = new WebSocket(url);
     
     socket.onopen = function(e) {
         console.log("[open] Connection established");
-        // socket.send("My name is John");
         bubble_up_app_message({ 'WEBSOCKET_ACK_EVENT': 17 });
     };
     
     socket.onmessage = function(event) {
         var converted_payload = JSON.parse(event.data);
 
-        console.log(`[message] Data received from server: ${JSON.stringify(converted_payload)}`);
+        // console.log(`[message] Data received from server: ${JSON.stringify(converted_payload)}`);
 
         if (converted_payload['ackd_event']) {
             bubble_up_app_message({ 'WEBSOCKET_ACK_EVENT': converted_payload['ackd_event'] });
@@ -42,7 +41,8 @@ function connect_gameserver_websocket(gameserver_id) {
 
 function debug_ack_event(event_id) {
     if (event_id == 19) {
-        socket.send(JSON.stringify({    
+        socket.send(JSON.stringify({   
+            'id': "pebble", 
             'event': 20,
             'pitch_reach_time': 9
         }));
@@ -50,35 +50,48 @@ function debug_ack_event(event_id) {
         return;
     }
 
-    socket.send(JSON.stringify({    
+    socket.send(JSON.stringify({ 
+        'id': "pebble",   
         'ackd_event': event_id
     }));
 }
 
 function send_start_game_event(wrist_position) {
-    socket.send(JSON.stringify({    
+    socket.send(JSON.stringify({   
+        'id': "pebble", 
         'event': 18,
         'wrist_position': wrist_position
     }));
 
-    debug_ack_event(18);
+    // debug_ack_event(18);
 }
 
 function send_batter_position_ready_event() {
     socket.send(JSON.stringify({    
+        'id': "pebble",
         'event': 19
     }));
 
-    debug_ack_event(19);
+    // debug_ack_event(19);
 }
 
-function batter_swing_event(swing_epoch) {
-    socket.send(JSON.stringify({    
+function batter_hit_event(swing_epoch) {
+    socket.send(JSON.stringify({  
+        'id': "pebble",  
         'event': 21,
         'swing_epoch': swing_epoch
     }));
 
-    debug_ack_event(18);
+    // debug_ack_event(18);
+}
+
+function batter_miss_event() {
+    socket.send(JSON.stringify({  
+        'id': "pebble",  
+        'event': 22
+    }));
+
+    // debug_ack_event(18);
 }
 
 function bubble_up_app_message(dictionary_value) {
@@ -102,10 +115,10 @@ Pebble.addEventListener('ready',
   // Listen for when an AppMessage is received
 Pebble.addEventListener('appmessage',
     function(e) {
-        console.log(`AppMessage received: ${JSON.stringify(e.payload)}!`);
+        // console.log(`AppMessage received: ${JSON.stringify(e.payload)}!`);
 
         if (e.payload['17']) {
-            connect_gameserver_websocket();
+            connect_gameserver_websocket(e.payload['17']);
         }
 
         if (e.payload['18']) {
@@ -121,7 +134,11 @@ Pebble.addEventListener('appmessage',
         }
 
         if (e.payload['21']) {
-            batter_swing_event();
+            batter_hit_event();
+        }
+
+        if (e.payload['22']) {
+            batter_miss_event();
         }
     }                     
 );

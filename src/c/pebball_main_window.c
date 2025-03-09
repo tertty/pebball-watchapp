@@ -1,6 +1,7 @@
 #include <pebble.h>
 
 #include "windows/pebball_game_window.h"
+#include "windows/session_id_select_window.h"
 #include "utils/utils.h"
 
 #define MAIN_MENU_SECTIONS 1
@@ -11,37 +12,67 @@ static Window *s_splash_window;
 static TextLayer *s_splash_text;
 
 // Main vars
-static Window *s_main_menu;
-static TextLayer *s_text_layer;
+static Window *s_main_menu_window;
 static SimpleMenuLayer *s_simple_main_menu;
 static SimpleMenuSection s_simple_main_menu_sections[MAIN_MENU_SECTIONS];
 static SimpleMenuItem s_simple_main_menu_items[MAIN_MENU_ITEMS];
 
-void main_menu_transition(void * data) {
-  // window_stack_push(s_main_menu, true);
-  // window_stack_remove(s_splash_window, false);
+// Wrist position sub-menu vars
+static Window *s_wrist_position_sub_menu_window;
+static SimpleMenuLayer *s_simple_wrist_position_menu;
+static SimpleMenuSection s_simple_wrist_position_menu_sections[MAIN_MENU_SECTIONS];
+static SimpleMenuItem s_simple_wrist_position_menu_items[MAIN_MENU_ITEMS];
 
-  construct_outgoing_app_message(MESSAGE_KEY_WEBSOCKET_CONNECT_EVENT, 1);
+void main_menu_transition(void * data) {
+  window_stack_pop(false);
+  session_id_select_window_push();
+}
+
+void restart_game_delay(void * data) {
+  construct_outgoing_app_message(MESSAGE_KEY_WEBSOCKET_START_GAME_EVENT, 76);
 }
 
 static void main_menu_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  s_simple_main_menu = simple_menu_layer_create(bounds, s_main_menu, s_simple_main_menu_sections, MAIN_MENU_SECTIONS, NULL);
+  s_simple_main_menu = simple_menu_layer_create(bounds, s_main_menu_window, s_simple_main_menu_sections, MAIN_MENU_SECTIONS, NULL);
   layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_main_menu));
 }
 
 static void main_menu_window_unload(Window *window) {
-  text_layer_destroy(s_splash_text);
   simple_menu_layer_destroy(s_simple_main_menu);
+}
+
+void set_wrist_position_left() {
+  wrist_position = false;
+
+  window_stack_pop(true);
+}
+
+void set_wrist_position_right() {
+  wrist_position = true;
+
+  window_stack_pop(true);
+}
+
+static void wrist_position_sub_menu_window_load(Window *window) {
+  Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(window_layer);
+
+  s_simple_wrist_position_menu = simple_menu_layer_create(bounds, s_wrist_position_sub_menu_window, s_simple_wrist_position_menu_sections, MAIN_MENU_SECTIONS, NULL);
+  layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_wrist_position_menu));
+}
+
+static void wrist_position_sub_menu_window_unload(Window *window) {
+  simple_menu_layer_destroy(s_simple_wrist_position_menu);
 }
 
 static void splash_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  s_splash_text = text_layer_create(GRect(0, 62, bounds.size.w, 40));
+  s_splash_text = text_layer_create(GRect(0, PBL_IF_RECT_ELSE(62, 72), bounds.size.w, 40));
   text_layer_set_text(s_splash_text, "Pebball!");
   text_layer_set_background_color(s_splash_text, GColorClear);
   text_layer_set_font(s_splash_text, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
@@ -60,16 +91,16 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   if (ack_event_tuple) {
     int converted_ack_event_tuple = ack_event_tuple->value->int8;
 
-    APP_LOG(APP_LOG_LEVEL_INFO, "Got: %d", converted_ack_event_tuple);
+    // APP_LOG(APP_LOG_LEVEL_INFO, "Got: %d", converted_ack_event_tuple);
 
     switch (converted_ack_event_tuple) {
       case 17:
-        window_stack_push(s_main_menu, true);
-        window_stack_remove(s_splash_window, false);
+        window_stack_pop(false);
+        window_stack_push(s_main_menu_window, true);
         break;
       case 18:
+        window_stack_pop(false);
         batting_calibration_push();
-        window_stack_remove(s_progress_hud_window, false);
         break;
       case 19:
         break;
@@ -77,13 +108,16 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         if (pitch_reach_time_tuple) {
           int converted_pitch_reach_time_tuple = pitch_reach_time_tuple->value->int8;
 
+          window_stack_pop(false);
           progress_hud_push();
-          window_stack_remove(s_batting_calibration_window, false);
 
           swing_event_timer = app_timer_register((converted_pitch_reach_time_tuple * 1000), batter_swing_event, NULL);
         }
         break;
       case 21:
+      case 22:
+        set_progress_hud_window_text();
+        app_timer_register(5000, restart_game_delay, NULL);
         break;
     }
   }
@@ -101,6 +135,18 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
 }
 
+void s_wrist_position_sub_menu_push() {
+    if (!s_wrist_position_sub_menu_window) {
+        s_wrist_position_sub_menu_window = window_create();
+        window_set_window_handlers(s_wrist_position_sub_menu_window, (WindowHandlers) {
+          .load = wrist_position_sub_menu_window_load,
+          .unload = wrist_position_sub_menu_window_unload,
+        });
+    }
+
+    window_stack_push(s_wrist_position_sub_menu_window, true);
+}
+
 static void prv_init(void) {
   // Register callbacks
   app_message_register_inbox_received(inbox_received_callback);
@@ -114,14 +160,16 @@ static void prv_init(void) {
 
   s_splash_window = window_create();
 
-  window_set_background_color(s_splash_window, GColorGreen);
+  window_set_background_color(s_splash_window, PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorClear));
 
   window_set_window_handlers(s_splash_window, (WindowHandlers) {
     .load = splash_window_load,
     .unload = splash_window_unload,
   });
 
-  s_main_menu = window_create();
+  s_main_menu_window = window_create();
+
+  wrist_position = false;
 
   s_simple_main_menu_items[0] = (SimpleMenuItem) {
     .title = "Start Game",
@@ -131,10 +179,10 @@ static void prv_init(void) {
   };
 
   s_simple_main_menu_items[1] = (SimpleMenuItem) {
-    .title = "Options",
+    .title = "Wrist Placement",
     .subtitle = NULL,
     .icon = NULL,
-    .callback = progress_hud_push
+    .callback = s_wrist_position_sub_menu_push
   };
 
   s_simple_main_menu_sections[0] = (SimpleMenuSection) {
@@ -143,7 +191,27 @@ static void prv_init(void) {
     .num_items = MAIN_MENU_ITEMS
   };
 
-  window_set_window_handlers(s_main_menu, (WindowHandlers) {
+  s_simple_wrist_position_menu_items[0] = (SimpleMenuItem) {
+    .title = "Left",
+    .subtitle = NULL,
+    .icon = NULL,
+    .callback = set_wrist_position_left
+  };
+
+  s_simple_wrist_position_menu_items[1] = (SimpleMenuItem) {
+    .title = "Right",
+    .subtitle = NULL,
+    .icon = NULL,
+    .callback = set_wrist_position_right
+  };
+
+  s_simple_wrist_position_menu_sections[0] = (SimpleMenuSection) {
+    .title = NULL,
+    .items = s_simple_wrist_position_menu_items,
+    .num_items = MAIN_MENU_ITEMS
+  };
+
+  window_set_window_handlers(s_main_menu_window, (WindowHandlers) {
     .load = main_menu_window_load,
     .unload = main_menu_window_unload,
   });
@@ -155,7 +223,7 @@ static void prv_init(void) {
 
 static void prv_deinit(void) {
   window_destroy(s_splash_window);
-  window_destroy(s_main_menu);
+  window_destroy(s_main_menu_window);
   window_destroy(s_batting_calibration_window);
   window_destroy(s_progress_hud_window);
 
