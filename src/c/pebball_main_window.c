@@ -7,6 +7,8 @@
 #define MAIN_MENU_SECTIONS 1
 #define MAIN_MENU_ITEMS 2
 
+#define PERSIST_KEY_WEB_URL 0
+
 // Splash vars
 static Window *s_splash_window;
 static TextLayer *s_splash_text;
@@ -26,6 +28,13 @@ static SimpleMenuItem s_simple_wrist_position_menu_items[MAIN_MENU_ITEMS];
 void main_menu_transition(void * data) {
   window_stack_pop(false);
   session_id_select_window_push();
+
+  if (persist_exists(PERSIST_KEY_WEB_URL)) {
+    char web_url_persist_buffer[50];
+
+    persist_read_string(PERSIST_KEY_WEB_URL, web_url_persist_buffer, sizeof(web_url_persist_buffer));
+    set_webserver_url(web_url_persist_buffer);
+  }
 }
 
 void restart_game_delay(void * data) {
@@ -87,11 +96,12 @@ static void splash_window_unload(Window *window) {
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   Tuple *ack_event_tuple = dict_find(iterator, MESSAGE_KEY_WEBSOCKET_ACK_EVENT);
   Tuple *pitch_reach_time_tuple = dict_find(iterator, MESSAGE_KEY_PITCH_REACH_TIME);
+  Tuple *webserver_url = dict_find(iterator, MESSAGE_KEY_WEBSERVER_URL);
 
   if (ack_event_tuple) {
     int converted_ack_event_tuple = ack_event_tuple->value->int8;
 
-    // APP_LOG(APP_LOG_LEVEL_INFO, "Got: %d", converted_ack_event_tuple);
+    APP_LOG(APP_LOG_LEVEL_INFO, "Got: %d", converted_ack_event_tuple);
 
     switch (converted_ack_event_tuple) {
       case 17:
@@ -120,6 +130,12 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         app_timer_register(5000, restart_game_delay, NULL);
         break;
     }
+  }
+
+  if (webserver_url) {
+    const char *converted_webserver_url = webserver_url->value->cstring;
+    persist_write_string(PERSIST_KEY_WEB_URL, converted_webserver_url);
+    set_webserver_url(converted_webserver_url);
   }
 }
 

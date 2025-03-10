@@ -1,10 +1,17 @@
 {
   "name": "pebball",
-  "author": "MakeAwesomeHappen",
-  "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "author": "The Pebballers Team",
+  "version": "1.0.1",
+  "keywords": [
+    "pebble-app",
+    "game",
+    "tech-demo",
+    "baseball"
+  ],
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
   "pebble": {
     "displayName": "Pebball!",
     "uuid": "73bc5078-bba5-486e-8fe7-4690d2ed20ae",
@@ -27,10 +34,14 @@
       "WEBSOCKET_PITCHER_THROW_EVENT",
       "WEBSOCKET_BATTER_HIT_EVENT",
       "WEBSOCKET_BATTER_MISS_EVENT",
-      "PITCH_REACH_TIME"
+      "PITCH_REACH_TIME",
+      "WEBSERVER_URL"
     ],
     "resources": {
       "media": []
-    }
+    },
+    "capabilities": [
+      "configurable"
+    ]
   }
 }

@@ -1,9 +1,17 @@
+// Import the Clay package
+var Clay = require('pebble-clay');
+// Load our Clay configuration file
+var clayConfig = require('./config');
+// Initialize Clay
+var clay = new Clay(clayConfig);
+
 var socket;
+var webserver_url = "";
 
 function connect_gameserver_websocket(gameserver_id) {
-    var url = `ws://10.100.0.37:3000/${gameserver_id}`;
+    constructed_webserver_url = `ws://${webserver_url}/${gameserver_id}`;
     
-    socket = new WebSocket(url);
+    socket = new WebSocket(constructed_webserver_url);
     
     socket.onopen = function(e) {
         console.log("[open] Connection established");
@@ -115,7 +123,7 @@ Pebble.addEventListener('ready',
   // Listen for when an AppMessage is received
 Pebble.addEventListener('appmessage',
     function(e) {
-        // console.log(`AppMessage received: ${JSON.stringify(e.payload)}!`);
+        console.log(`AppMessage received: ${JSON.stringify(e.payload)}!`);
 
         if (e.payload['17']) {
             connect_gameserver_websocket(e.payload['17']);
@@ -139,6 +147,10 @@ Pebble.addEventListener('appmessage',
 
         if (e.payload['22']) {
             batter_miss_event();
+        }
+
+        if (e.payload['WEBSERVER_URL']) {
+            webserver_url = e.payload['WEBSERVER_URL'];
         }
     }                     
 );
